@@ -4,6 +4,7 @@ import android.media.AudioAttributes;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
+import android.os.Handler;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -13,8 +14,16 @@ import android.view.View;
 import android.widget.Button;
 
 import com.cozendey.opl3.OPL3;
+import com.leff.midi.MidiFile;
+import com.leff.midi.event.MidiEvent;
+import com.leff.midi.event.NoteOff;
+import com.leff.midi.event.NoteOn;
+import com.leff.midi.util.MidiEventListener;
+import com.leff.midi.util.MidiProcessor;
 
-public class MainActivity extends AppCompatActivity {
+import java.io.IOException;
+
+public class MainActivity extends AppCompatActivity implements MidiEventListener {
 
     OPL3 opl3;
     AudioTrack oplAudioTrack;
@@ -22,22 +31,38 @@ public class MainActivity extends AppCompatActivity {
     boolean isPlaying = true;
 
     private Button button_sound;
+    private Handler updateHandler;
+    private MidiProcessor midiProcessor;
+
+    private double [] noteTable;
+    private double [] octTable;
+    private int [] channelRegisterOffset = {0, 1, 2, 8, 9, 10, 16, 17, 18};
+    private SynthChannelManager channelManager = new SynthChannelManager();
 
     private Runnable audioWriteRunnable = new Runnable() {
         @Override
         public void run() {
-            setupAudio();
+//            setupAudio();
 
             // Fill buffer
             while (isPlaying) {
-                for (int i = 0; i < oplBuffer.length; i++) {
-                    oplBuffer[i] = opl3.read()[0];
-                }
-
-                oplAudioTrack.write(oplBuffer, 0, oplBuffer.length);
+                enqueueBuffer();
             }
         }
     };
+    private int minBufferSize;
+    private int lastFNum;
+    private int lastBlock;
+
+    private void enqueueBuffer() {
+        for (int i = 0; i < oplBuffer.length; i++) {
+            oplBuffer[i] = opl3.read()[0];
+        }
+
+        oplAudioTrack.write(oplBuffer, 0, oplBuffer.length);
+//        oplAudioTrack.setNotificationMarkerPosition(oplAudioTrack.getPlaybackHeadPosition() + minBufferSize*2);
+    }
+
     private Thread audioThread;
 
     @Override
@@ -60,13 +85,13 @@ public class MainActivity extends AppCompatActivity {
 
                 switch (event.getAction()) {
                     case KeyEvent.ACTION_DOWN:
-                        opl3.write(0, 0xA0, 0x98);
-                        opl3.write(0, 0xB0, 0x31);
+                        opl3.write(0, 0xA0, 0x1C);
+                        opl3.write(0, 0xB0, 0x32);
                         break;
 
                     case KeyEvent.ACTION_UP:
-                        opl3.write(0, 0xA0, 0x98);
-                        opl3.write(0, 0xB0, 0x11);
+                        opl3.write(0, 0xA0, 0x1C);
+                        opl3.write(0, 0xB0, 0x12);
                         break;
                 }
 
@@ -75,30 +100,105 @@ public class MainActivity extends AppCompatActivity {
         });
 
         opl3 = new OPL3();
-        audioThread = new Thread(audioWriteRunnable);
-        audioThread.start(); // start audio playback
+        fillTable();
+        try {
+            midiProcessor = new MidiProcessor(new MidiFile(getResources().openRawResource(R.raw.gmstri00)));
+            midiProcessor.registerEventListener(this, MidiEvent.class);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
 
         // Test audio parameter
         opl3.write(0, 0x01, 1 << 5);
 
-        opl3.write(0, 0x20, 0x1);
-        opl3.write(0, 0x40, 0x10);
-        opl3.write(0, 0x60, 0xF0);
-        opl3.write(0, 0x80, 0x77);
+        for (int c = 0; c < 9; c++) {
+            opl3.write(0, 0x20 + channelRegisterOffset[c], 0x1);
+            opl3.write(0, 0x40 + channelRegisterOffset[c], 0x10);
+            opl3.write(0, 0x60 + channelRegisterOffset[c], 0xF0);
+            opl3.write(0, 0x80 + channelRegisterOffset[c], 0x77);
 //        opl3.write(0, 0xA0, 0x98);
 
-        opl3.write(0, 0x23, 0x1);
-        opl3.write(0, 0x43, 0x00);
-        opl3.write(0, 0x63, 0xF0);
-        opl3.write(0, 0x83, 0x77);
+            opl3.write(0, 0x23 + channelRegisterOffset[c], 0x1);
+            opl3.write(0, 0x43 + channelRegisterOffset[c], 0x00);
+            opl3.write(0, 0x63 + channelRegisterOffset[c], 0xF0);
+            opl3.write(0, 0x83 + channelRegisterOffset[c], 0x77);
 //        opl3.write(0, 0xB0, 0x31);
+        }
+
+        setupAudio();
+        audioThread = new Thread(audioWriteRunnable);
+        audioThread.start(); // start audio playback
+
+        midiProcessor.start();
+    }
+
+    private void fillTable() {
+        noteTable = new double[12];
+        octTable = new double[12];
+
+        for (int n = 0; n < 12; n++) {
+//            noteTable[n] = Math.pow(2.0, (n-9)/12.0);
+            octTable[n] = Math.pow(2.0, (20-n));
+            noteTable[n] = Math.pow(2.0, (n-9)/12.0) * 440.0;
+        }
     }
 
     private void setupAudio() {
-        int minBufferSize = AudioTrack.getMinBufferSize(49700, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT);
+        minBufferSize = AudioTrack.getMinBufferSize(49700, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT);
         Log.d("setupAudio", "minBufferSize = "+minBufferSize);
-        oplAudioTrack = new AudioTrack(AudioManager.STREAM_MUSIC, 49700, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT, minBufferSize, AudioTrack.MODE_STREAM);
+        oplAudioTrack = new AudioTrack(AudioManager.STREAM_MUSIC, 49700, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT, minBufferSize * 1 * 4, AudioTrack.MODE_STREAM);
         oplBuffer = new short[minBufferSize/2];
+        updateHandler = new Handler();
+//        oplAudioTrack.setNotificationMarkerPosition(minBufferSize*2);
+        enqueueBuffer();
         oplAudioTrack.play();
+    }
+
+    @Override
+    public void onStart(boolean fromBeginning) {
+
+    }
+
+    @Override
+    public void onEvent(MidiEvent event, long ms) {
+        if (event instanceof NoteOn) {
+            NoteOn midiEvent = (NoteOn) event;
+
+            if (midiEvent.getChannel() == 0x9) return;
+
+            if (midiEvent.getVelocity() == 0) {
+                int channel = channelManager.noteOff(midiEvent.getNoteValue());
+                if (channel == -1) return;
+                opl3.write(0, 0xA0 + channel, lastFNum & 0xFF);
+                opl3.write(0, 0xB0 + channel, lastBlock << 2 | lastFNum >> 8);
+                return;
+            }
+
+            int curNote = midiEvent.getNoteValue() % 12;
+            int curOct = midiEvent.getNoteValue() / 12;
+            if (curOct < 1) curOct = 1;
+
+//            int fNum = (int) ((double)noteTable[curNote]*octTable[curOct]*440.0/49716.0);
+//            int fNum = (int) (noteTable[curNote] * octTable[curOct-1] / 49716.0);
+            double fNum = (Math.pow(2.0, (midiEvent.getNoteValue()-69)/12.0) * octTable[curOct-1] * 440.0 / 49716.0);
+            lastFNum = (int) fNum;
+            lastBlock = curOct-1;
+            int channel = channelManager.noteOn(midiEvent.getNoteValue());
+            Log.d("Noteon", ""+channel+" "+fNum+" "+curOct);
+            opl3.write(0, 0xA0 + channel, lastFNum & 0xFF);
+            opl3.write(0, 0xB0 + channel, 0x20 | (curOct-1) << 2 | (lastFNum >> 8) & 3);
+        } else if (event instanceof NoteOff) {
+            NoteOff midiEvent = (NoteOff) event;
+
+            int channel = channelManager.noteOff(midiEvent.getNoteValue());
+            if (channel == -1) return;
+            opl3.write(0, 0xA0 + channel, lastFNum & 0xFF);
+            opl3.write(0, 0xB0 + channel, lastBlock << 2 | lastFNum >> 8);
+        }
+    }
+
+    @Override
+    public void onStop(boolean finished) {
+
     }
 }
