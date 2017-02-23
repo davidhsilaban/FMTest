@@ -23,6 +23,14 @@ JNIEXPORT void JNICALL Java_com_davidhs_fmtest_NativeFMSynth_init
 JNIEXPORT void JNICALL Java_com_davidhs_fmtest_NativeFMSynth_write
   (JNIEnv *, jobject, jint, jbyte);
 
+/*
+ * Class:     com_davidhs_fmtest_NativeFMSynth
+ * Method:    getsamples
+ * Signature: ([SI)V
+ */
+JNIEXPORT void JNICALL Java_com_davidhs_fmtest_NativeFMSynth_getsamples
+  (JNIEnv *, jobject, jshortArray, jint);
+
 #ifdef __cplusplus
 }
 #endif

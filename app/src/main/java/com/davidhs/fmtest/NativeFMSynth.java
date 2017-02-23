@@ -12,4 +12,5 @@ public class NativeFMSynth {
 
     public native void init();
     public native void write(int reg, byte val);
+    public native void getsamples(short[] sndptr, int numsamples);
 }
