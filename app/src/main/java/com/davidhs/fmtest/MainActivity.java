@@ -18,8 +18,10 @@ import com.leff.midi.MidiFile;
 import com.leff.midi.event.MidiEvent;
 import com.leff.midi.event.NoteOff;
 import com.leff.midi.event.NoteOn;
+import com.leff.midi.event.meta.Tempo;
 import com.leff.midi.util.MidiEventListener;
 import com.leff.midi.util.MidiProcessor;
+import com.leff.midi.util.MidiUtil;
 
 import java.io.IOException;
 
@@ -46,20 +48,42 @@ public class MainActivity extends AppCompatActivity implements MidiEventListener
 
             // Fill buffer
             while (isPlaying) {
-                enqueueBuffer();
+                enqueueBuffer(100);
+                try {
+                    Thread.sleep(500);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
             }
         }
     };
     private int minBufferSize;
     private int lastFNum;
     private int lastBlock;
+    private int curTempo = 500000;
+    private MidiFile midiFile;
+    private long samplesPerMs = 0;
+    private int curMs;
+    private long lastMs;
 
-    private void enqueueBuffer() {
+    private void prequeueBuffer() {
         for (int i = 0; i < oplBuffer.length; i++) {
             oplBuffer[i] = opl3.read()[0];
         }
 
         oplAudioTrack.write(oplBuffer, 0, oplBuffer.length);
+//        oplAudioTrack.setNotificationMarkerPosition(oplAudioTrack.getPlaybackHeadPosition() + minBufferSize*2);
+    }
+
+    private void enqueueBuffer(int samples) {
+        synchronized (this) {
+            oplBuffer = new short[samples];
+            for (int i = 0; i < oplBuffer.length; i++) {
+                oplBuffer[i] = opl3.read()[0];
+            }
+
+            oplAudioTrack.write(oplBuffer, 0, oplBuffer.length);
+        }
 //        oplAudioTrack.setNotificationMarkerPosition(oplAudioTrack.getPlaybackHeadPosition() + minBufferSize*2);
     }
 
@@ -102,7 +126,8 @@ public class MainActivity extends AppCompatActivity implements MidiEventListener
         opl3 = new OPL3();
         fillTable();
         try {
-            midiProcessor = new MidiProcessor(new MidiFile(getResources().openRawResource(R.raw.gmstri00)));
+            midiFile = new MidiFile(getResources().openRawResource(R.raw.gmstri00));
+            midiProcessor = new MidiProcessor(midiFile);
             midiProcessor.registerEventListener(this, MidiEvent.class);
         } catch (IOException e) {
             e.printStackTrace();
@@ -126,11 +151,11 @@ public class MainActivity extends AppCompatActivity implements MidiEventListener
         }
 
         setupAudio();
-        audioThread = new Thread(audioWriteRunnable);
-        audioThread.start(); // start audio playback
-
         midiProcessor.start();
-    }
+
+        audioThread = new Thread(audioWriteRunnable);
+//        audioThread.start(); // start audio playback
+}
 
     private void fillTable() {
         noteTable = new double[12];
@@ -144,13 +169,32 @@ public class MainActivity extends AppCompatActivity implements MidiEventListener
     }
 
     private void setupAudio() {
-        minBufferSize = AudioTrack.getMinBufferSize(49700, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT);
+//        minBufferSize = AudioTrack.getMinBufferSize(49700, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT);
+        minBufferSize = 24850;
         Log.d("setupAudio", "minBufferSize = "+minBufferSize);
-        oplAudioTrack = new AudioTrack(AudioManager.STREAM_MUSIC, 49700, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT, minBufferSize * 1 * 4, AudioTrack.MODE_STREAM);
+        oplAudioTrack = new AudioTrack(AudioManager.STREAM_MUSIC, 49700, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT, minBufferSize, AudioTrack.MODE_STREAM);
+        samplesPerMs = 49700 * 1 / 1000;
         oplBuffer = new short[minBufferSize/2];
         updateHandler = new Handler();
-//        oplAudioTrack.setNotificationMarkerPosition(minBufferSize*2);
-        enqueueBuffer();
+        oplAudioTrack.setPositionNotificationPeriod(minBufferSize/8);
+        oplAudioTrack.setPlaybackPositionUpdateListener(new AudioTrack.OnPlaybackPositionUpdateListener() {
+            @Override
+            public void onMarkerReached(AudioTrack track) {
+
+            }
+
+            @Override
+            public void onPeriodicNotification(AudioTrack track) {
+                Log.d("Update", "Update");
+                prequeueBuffer();
+                try {
+                    Thread.sleep(1);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }, updateHandler);
+        prequeueBuffer();
         oplAudioTrack.play();
     }
 
@@ -161,32 +205,38 @@ public class MainActivity extends AppCompatActivity implements MidiEventListener
 
     @Override
     public void onEvent(MidiEvent event, long ms) {
-        if (event instanceof NoteOn) {
+        if (event instanceof Tempo) {
+            Tempo tempoEvent = (Tempo) event;
+            curTempo = tempoEvent.getMpqn();
+        } else if (event instanceof NoteOn) {
             NoteOn midiEvent = (NoteOn) event;
 
-            if (midiEvent.getChannel() == 0x9) return;
+            if (midiEvent.getChannel() != 0x9) {
 
-            if (midiEvent.getVelocity() == 0) {
-                int channel = channelManager.noteOff(midiEvent.getNoteValue());
-                if (channel == -1) return;
-                opl3.write(0, 0xA0 + channel, lastFNum & 0xFF);
-                opl3.write(0, 0xB0 + channel, lastBlock << 2 | lastFNum >> 8);
-                return;
-            }
+                if (midiEvent.getVelocity() == 0) {
+                    int channel = channelManager.noteOff(midiEvent.getNoteValue());
+                    if (channel == -1) return;
+                    opl3.write(0, 0xA0 + channel, lastFNum & 0xFF);
+                    opl3.write(0, 0xB0 + channel, lastBlock << 2 | lastFNum >> 8);
+                    return;
+                }
 
-            int curNote = midiEvent.getNoteValue() % 12;
-            int curOct = midiEvent.getNoteValue() / 12;
-            if (curOct < 1) curOct = 1;
+                int curNote = midiEvent.getNoteValue() % 12;
+                int curOct = midiEvent.getNoteValue() / 12;
+                if (curOct < 1) curOct = 1;
 
 //            int fNum = (int) ((double)noteTable[curNote]*octTable[curOct]*440.0/49716.0);
 //            int fNum = (int) (noteTable[curNote] * octTable[curOct-1] / 49716.0);
-            double fNum = (Math.pow(2.0, (midiEvent.getNoteValue()-69)/12.0) * octTable[curOct-1] * 440.0 / 49716.0);
-            lastFNum = (int) fNum;
-            lastBlock = curOct-1;
-            int channel = channelManager.noteOn(midiEvent.getNoteValue());
-            Log.d("Noteon", ""+channel+" "+fNum+" "+curOct);
-            opl3.write(0, 0xA0 + channel, lastFNum & 0xFF);
-            opl3.write(0, 0xB0 + channel, 0x20 | (curOct-1) << 2 | (lastFNum >> 8) & 3);
+                double fNum = (Math.pow(2.0, (midiEvent.getNoteValue() - 69) / 12.0) * octTable[curOct - 1] * 440.0 / 49716.0);
+                lastFNum = (int) fNum;
+                lastBlock = curOct - 1;
+                int channel = channelManager.noteOn(midiEvent.getNoteValue());
+                opl3.write(0, 0xA0 + channel, lastFNum & 0xFF);
+                opl3.write(0, 0xB0 + channel, lastBlock << 2 | lastFNum >> 8);
+//                Log.d("Noteon", "" + channel + " " + fNum + " " + curOct);
+                opl3.write(0, 0xA0 + channel, lastFNum & 0xFF);
+                opl3.write(0, 0xB0 + channel, 0x20 | (curOct - 1) << 2 | (lastFNum >> 8) & 3);
+            }
         } else if (event instanceof NoteOff) {
             NoteOff midiEvent = (NoteOff) event;
 
@@ -195,6 +245,17 @@ public class MainActivity extends AppCompatActivity implements MidiEventListener
             opl3.write(0, 0xA0 + channel, lastFNum & 0xFF);
             opl3.write(0, 0xB0 + channel, lastBlock << 2 | lastFNum >> 8);
         }
+
+        final long samples = (ms - lastMs) * samplesPerMs;
+//        opl3.read();
+//        Log.d("delta", ""+event.getDelta());
+//        new Thread(new Runnable() {
+//            @Override
+//            public void run() {
+//                enqueueBuffer((int) samples);
+//            }
+//        }).start();
+        lastMs = ms;
     }
 
     @Override
