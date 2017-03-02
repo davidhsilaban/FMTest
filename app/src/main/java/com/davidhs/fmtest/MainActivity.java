@@ -12,6 +12,7 @@ import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
+import android.widget.Toast;
 
 import com.cozendey.opl3.OPL3;
 import com.leff.midi.MidiFile;
@@ -42,6 +43,7 @@ public class MainActivity extends AppCompatActivity implements MidiEventListener
     private int [] channelRegisterOffset = {0, 1, 2, 8, 9, 10, 16, 17, 18};
     private NativeFMSynth synth = new NativeFMSynth();
     private SynthChannelManager channelManager = new SynthChannelManager(synth);
+    private Gmtimbre timbre = new Gmtimbre(synth);
 
     private Runnable audioWriteRunnable = new Runnable() {
         @Override
@@ -72,7 +74,7 @@ public class MainActivity extends AppCompatActivity implements MidiEventListener
 //        for (int i = 0; i < oplBuffer.length; i++) {
 //            oplBuffer[i] = opl3.read()[0];
 //        }
-        synth.getsamples(oplBuffer, oplBuffer.length);
+        synth.getsamples(oplBuffer, oplBuffer.length/2);
 
         oplAudioTrack.write(oplBuffer, 0, oplBuffer.length);
 //        oplAudioTrack.setNotificationMarkerPosition(oplAudioTrack.getPlaybackHeadPosition() + minBufferSize*2);
@@ -140,34 +142,36 @@ public class MainActivity extends AppCompatActivity implements MidiEventListener
 
         // Test audio parameter
         opl3.write(0, 0x01, 1 << 5);
+        synth.write(0x105, (byte) 1);
 
-        for (int c = 0; c < 9; c++) {
-            opl3.write(0, 0x20 + channelRegisterOffset[c], 0x1);
-            opl3.write(0, 0x40 + channelRegisterOffset[c], 0x10);
-            opl3.write(0, 0x60 + channelRegisterOffset[c], 0xF0);
-            opl3.write(0, 0x80 + channelRegisterOffset[c], 0x77);
+        for (int c = 0; c < 18; c++) {
+            opl3.write(0, 0x20 + channelRegisterOffset[c%9], 0x1);
+            opl3.write(0, 0x40 + channelRegisterOffset[c%9], 0x10);
+            opl3.write(0, 0x60 + channelRegisterOffset[c%9], 0xF0);
+            opl3.write(0, 0x80 + channelRegisterOffset[c%9], 0x77);
 
-            synth.write(0x20 + channelRegisterOffset[c], (byte) 0x1);
-            synth.write(0x40 + channelRegisterOffset[c], (byte) 0x10);
-            synth.write(0x60 + channelRegisterOffset[c], (byte) 0xF0);
-            synth.write(0x80 + channelRegisterOffset[c], (byte) 0x77);
+            synth.write(0x20 + channelRegisterOffset[c%9] + ((c / 9) << 8), (byte) 0x1);
+            synth.write(0x40 + channelRegisterOffset[c%9] + ((c / 9) << 8), (byte) 0x10);
+            synth.write(0x60 + channelRegisterOffset[c%9] + ((c / 9) << 8), (byte) 0xF0);
+            synth.write(0x80 + channelRegisterOffset[c%9] + ((c / 9) << 8), (byte) 0x77);
 
 //        opl3.write(0, 0xA0, 0x98);
 
-            opl3.write(0, 0x23 + channelRegisterOffset[c], 0x1);
-            opl3.write(0, 0x43 + channelRegisterOffset[c], 0x00);
-            opl3.write(0, 0x63 + channelRegisterOffset[c], 0xF0);
-            opl3.write(0, 0x83 + channelRegisterOffset[c], 0x77);
+            opl3.write(0, 0x23 + channelRegisterOffset[c%9], 0x1);
+            opl3.write(0, 0x43 + channelRegisterOffset[c%9], 0x00);
+            opl3.write(0, 0x63 + channelRegisterOffset[c%9], 0xF0);
+            opl3.write(0, 0x83 + channelRegisterOffset[c%9], 0x77);
 
-            synth.write(0x23 + channelRegisterOffset[c], (byte) 0x1);
-            synth.write(0x43 + channelRegisterOffset[c], (byte) 0x00);
-            synth.write(0x63 + channelRegisterOffset[c], (byte) 0xF0);
-            synth.write(0x83 + channelRegisterOffset[c], (byte) 0x77);
+            synth.write(0x23 + channelRegisterOffset[c%9] + ((c / 9) << 8), (byte) 0x1);
+            synth.write(0x43 + channelRegisterOffset[c%9] + ((c / 9) << 8), (byte) 0x00);
+            synth.write(0x63 + channelRegisterOffset[c%9] + ((c / 9) << 8), (byte) 0xF0);
+            synth.write(0x83 + channelRegisterOffset[c%9] + ((c / 9) << 8), (byte) 0x77);
 //        opl3.write(0, 0xB0, 0x31);
         }
 
         setupAudio();
-        midiProcessor.start();
+//        midiProcessor.start();
+        Toast.makeText(this, ""+timbre.opl_timbres[3].mult[0], Toast.LENGTH_SHORT).show();
 
         audioThread = new Thread(audioWriteRunnable);
         audioThread.start(); // start audio playback

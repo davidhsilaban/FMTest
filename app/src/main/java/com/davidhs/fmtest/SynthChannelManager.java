@@ -11,6 +11,7 @@ import java.util.HashMap;
 
 public class SynthChannelManager {
 
+    public static final int OPL_CHANNELS = 18;
     private NativeFMSynth mSynth;
 
     private class OplChannelStatus {
@@ -34,7 +35,7 @@ public class SynthChannelManager {
 
         oplChannelStatusList = new ArrayList<>();
         midiChannelStatusList = new ArrayList<>();
-        for (int c = 0; c < 9; c++) {
+        for (int c = 0; c < OPL_CHANNELS; c++) {
             oplChannelStatusList.add(new OplChannelStatus());
         }
 
@@ -105,8 +106,8 @@ public class SynthChannelManager {
 
         double fNum = (Math.pow(2.0, (oplChannelStatusList.get(oplChannel).midiNote - 69) / 12.0) * Math.pow(2.0, 20 - (curOct - 1)) * oplChannelStatusList.get(oplChannel).tune / 49716.0);
         int curFNum = (int) fNum;
-        mSynth.write(0xA0 + oplChannel, (byte) (curFNum & 0xFF));
-        mSynth.write(0xB0 + oplChannel, (byte) ((oplChannelStatusList.get(oplChannel).active ? 0x20 : 0x0) | (curOct - 1) << 2 | (curFNum >> 8) & 3));
+        mSynth.write(0xA0 + (oplChannel%9) + ((oplChannel / 9) << 8), (byte) (curFNum & 0xFF));
+        mSynth.write(0xB0 + (oplChannel%9) + ((oplChannel / 9) << 8), (byte) ((oplChannelStatusList.get(oplChannel).active ? 0x20 : 0x0) | (curOct - 1) << 2 | (curFNum >> 8) & 3));
     }
 
     private void channelOn(int oplChannel) {
@@ -118,8 +119,8 @@ public class SynthChannelManager {
 //            int fNum = (int) (noteTable[curNote] * octTable[curOct-1] / 49716.0);
         double fNum = (Math.pow(2.0, (oplChannelStatusList.get(oplChannel).midiNote - 69) / 12.0) * Math.pow(2.0, 20 - (curOct - 1)) * oplChannelStatusList.get(oplChannel).tune / 49716.0);
         int curFNum = (int) fNum;
-        mSynth.write(0xA0 + oplChannel, (byte) (curFNum & 0xFF));
-        mSynth.write(0xB0 + oplChannel, (byte) (0x20 | (curOct - 1) << 2 | (curFNum >> 8) & 3));
+        mSynth.write(0xA0 + (oplChannel%9) + ((oplChannel / 9) << 8), (byte) (curFNum & 0xFF));
+        mSynth.write(0xB0 + (oplChannel%9) + ((oplChannel / 9) << 8), (byte) (0x20 | (curOct - 1) << 2 | (curFNum >> 8) & 3));
     }
 
     private void channelOff(int oplChannel) {
@@ -131,7 +132,7 @@ public class SynthChannelManager {
         double fNum = (Math.pow(2.0, (channelStatus.midiNote - 69) / 12.0) * Math.pow(2.0, 20 - (lastOct - 1)) * channelStatus.tune / 49716.0);
         int lastFNum = (int) fNum;
 
-        mSynth.write(0xA0 + oplChannel, (byte) (lastFNum & 0xFF));
-        mSynth.write(0xB0 + oplChannel, (byte) ((lastOct - 1) << 2 | (lastFNum >> 8) & 3));
+        mSynth.write(0xA0 + (oplChannel%9) + ((oplChannel / 9) << 8), (byte) (lastFNum & 0xFF));
+        mSynth.write(0xB0 + (oplChannel%9) + ((oplChannel / 9) << 8), (byte) ((lastOct - 1) << 2 | (lastFNum >> 8) & 3));
     }
 }
