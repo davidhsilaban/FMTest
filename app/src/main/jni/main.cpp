@@ -85,7 +85,8 @@ JNIEXPORT void JNICALL Java_com_davidhs_fmtest_NativeFMSynth_getpatches(JNIEnv *
         jobject opl_timbre_object = env->GetObjectArrayElement(opl_timbres_, i);
         jbyteArray opl_timbre_mult_jarray = (jbyteArray)env->GetObjectField(opl_timbre_object, opl_timbre_mult_id);
         jbyte *opl_timbre_mult_array = env->GetByteArrayElements(opl_timbre_mult_jarray, NULL);
-        opl_timbre_mult_array = (jbyte*)opl_timbres[i].mult;
+//        opl_timbre_mult_array = (jbyte*)opl_timbres[i].mult;
+        memcpy(opl_timbre_mult_array, opl_timbres[i].mult);
         env->ReleaseByteArrayElements(opl_timbre_mult_jarray, opl_timbre_mult_array, 0);
     }
 }
