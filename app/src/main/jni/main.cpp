@@ -5,6 +5,7 @@
 #include <jni.h>
 #include "gmtimbre.h"
 #include "com_davidhs_fmtest_NativeFMSynth.h"
+#include <cstring>
 
 namespace OPL3 {
     #define OPLTYPE_IS_OPL3
@@ -86,7 +87,7 @@ JNIEXPORT void JNICALL Java_com_davidhs_fmtest_NativeFMSynth_getpatches(JNIEnv *
         jbyteArray opl_timbre_mult_jarray = (jbyteArray)env->GetObjectField(opl_timbre_object, opl_timbre_mult_id);
         jbyte *opl_timbre_mult_array = env->GetByteArrayElements(opl_timbre_mult_jarray, NULL);
 //        opl_timbre_mult_array = (jbyte*)opl_timbres[i].mult;
-        memcpy(opl_timbre_mult_array, opl_timbres[i].mult);
+        memcpy(opl_timbre_mult_array, opl_timbres[i].mult, sizeof(opl_timbres[i].mult));
         env->ReleaseByteArrayElements(opl_timbre_mult_jarray, opl_timbre_mult_array, 0);
     }
 }
