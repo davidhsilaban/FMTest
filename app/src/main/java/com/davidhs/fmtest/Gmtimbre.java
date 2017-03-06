@@ -63,9 +63,6 @@ public class Gmtimbre {
 //    #pragma pack()
 
     public Gmtimbre(NativeFMSynth synth) {
-        for (int i = 0; i < 256; i++) {
-            opl_timbres[i] = new opl_timbre();
-        }
         Log.d("Gmtimbre", ""+opl_timbres[0].mult[0]);
         synth.getpatches(opl_timbres, opl_drum_maps);
     }
