@@ -20,6 +20,7 @@ import com.leff.midi.event.MidiEvent;
 import com.leff.midi.event.NoteOff;
 import com.leff.midi.event.NoteOn;
 import com.leff.midi.event.PitchBend;
+import com.leff.midi.event.ProgramChange;
 import com.leff.midi.event.meta.Tempo;
 import com.leff.midi.util.MidiEventListener;
 import com.leff.midi.util.MidiProcessor;
@@ -42,8 +43,8 @@ public class MainActivity extends AppCompatActivity implements MidiEventListener
     private double [] octTable;
     private int [] channelRegisterOffset = {0, 1, 2, 8, 9, 10, 16, 17, 18};
     private NativeFMSynth synth = new NativeFMSynth();
-    private SynthChannelManager channelManager = new SynthChannelManager(synth);
     private Gmtimbre timbre = new Gmtimbre(synth);
+    private SynthChannelManager channelManager = new SynthChannelManager(synth, timbre);
 
     private Runnable audioWriteRunnable = new Runnable() {
         @Override
@@ -142,6 +143,7 @@ public class MainActivity extends AppCompatActivity implements MidiEventListener
 
         // Test audio parameter
         opl3.write(0, 0x01, 1 << 5);
+        synth.write(0x01, (byte) (1 << 5));
         synth.write(0x105, (byte) 1);
 
         for (int c = 0; c < 18; c++) {
@@ -170,7 +172,7 @@ public class MainActivity extends AppCompatActivity implements MidiEventListener
         }
 
         setupAudio();
-//        midiProcessor.start();
+        midiProcessor.start();
         Toast.makeText(this, ""+timbre.opl_timbres[3].mult[0], Toast.LENGTH_SHORT).show();
 
         audioThread = new Thread(audioWriteRunnable);
@@ -274,6 +276,10 @@ public class MainActivity extends AppCompatActivity implements MidiEventListener
             PitchBend midiEvent = (PitchBend) event;
 
             channelManager.pitchBend(midiEvent.getChannel(), midiEvent.getBendAmount());
+        } else if (event instanceof ProgramChange) {
+            ProgramChange midiEvent = (ProgramChange) event;
+
+            channelManager.programChange(midiEvent.getChannel(), midiEvent.getProgramNumber());
         }
 
         final long samples = (ms - lastMs) * samplesPerMs;

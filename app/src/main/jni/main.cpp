@@ -51,7 +51,7 @@ Java_com_davidhs_fmtest_NativeFMSynth_getsamples(JNIEnv *env, jobject thisObject
 }
 
 JNIEXPORT void JNICALL Java_com_davidhs_fmtest_NativeFMSynth_getpatches(JNIEnv *env, jobject thisObject,
-        jobjectArray opl_timbres_, jobjectArray opl_drum_maps_)
+        jobject gmtimbre_instance, jobjectArray opl_timbres_, jobjectArray opl_drum_maps_)
 {
     if (env->IsSameObject(opl_timbres_, NULL)) {
         env->ThrowNew(env->FindClass("java/lang/NullPointerException"), "Null opl_timbres object");
@@ -84,10 +84,42 @@ JNIEXPORT void JNICALL Java_com_davidhs_fmtest_NativeFMSynth_getpatches(JNIEnv *
     jfieldID opl_timbre_octave_id = env->GetFieldID(opl_timbre_class, "octave", "B");
     for (int i = 0; i < env->GetArrayLength(opl_timbres_); i++) {
         jobject opl_timbre_object = env->GetObjectArrayElement(opl_timbres_, i);
+        if (env->IsSameObject(opl_timbre_object, NULL)) {
+            opl_timbre_object = env->NewObject(opl_timbre_class, env->GetMethodID(opl_timbre_class, "<init>", "(Lcom/davidhs/fmtest/Gmtimbre;)V"), gmtimbre_instance);
+            env->SetObjectArrayElement(opl_timbres_, i, opl_timbre_object);
+        }
         jbyteArray opl_timbre_mult_jarray = (jbyteArray)env->GetObjectField(opl_timbre_object, opl_timbre_mult_id);
         jbyte *opl_timbre_mult_array = env->GetByteArrayElements(opl_timbre_mult_jarray, NULL);
-//        opl_timbre_mult_array = (jbyte*)opl_timbres[i].mult;
         memcpy(opl_timbre_mult_array, opl_timbres[i].mult, sizeof(opl_timbres[i].mult));
         env->ReleaseByteArrayElements(opl_timbre_mult_jarray, opl_timbre_mult_array, 0);
+        env->DeleteLocalRef(opl_timbre_mult_jarray);
+
+        jbyteArray opl_timbre_tl_jarray = (jbyteArray)env->GetObjectField(opl_timbre_object, opl_timbre_tl_id);
+        jbyte *opl_timbre_tl_array = env->GetByteArrayElements(opl_timbre_tl_jarray, NULL);
+        memcpy(opl_timbre_tl_array, opl_timbres[i].tl, sizeof(opl_timbres[i].tl));
+        env->ReleaseByteArrayElements(opl_timbre_tl_jarray, opl_timbre_tl_array, 0);
+        env->DeleteLocalRef(opl_timbre_tl_jarray);
+
+        jbyteArray opl_timbre_ad_jarray = (jbyteArray)env->GetObjectField(opl_timbre_object, opl_timbre_ad_id);
+        jbyte *opl_timbre_ad_array = env->GetByteArrayElements(opl_timbre_ad_jarray, NULL);
+        memcpy(opl_timbre_ad_array, opl_timbres[i].ad, sizeof(opl_timbres[i].ad));
+        env->ReleaseByteArrayElements(opl_timbre_ad_jarray, opl_timbre_ad_array, 0);
+        env->DeleteLocalRef(opl_timbre_ad_jarray);
+
+        jbyteArray opl_timbre_sr_jarray = (jbyteArray)env->GetObjectField(opl_timbre_object, opl_timbre_sr_id);
+        jbyte *opl_timbre_sr_array = env->GetByteArrayElements(opl_timbre_sr_jarray, NULL);
+        memcpy(opl_timbre_sr_array, opl_timbres[i].sr, sizeof(opl_timbres[i].sr));
+        env->ReleaseByteArrayElements(opl_timbre_sr_jarray, opl_timbre_sr_array, 0);
+        env->DeleteLocalRef(opl_timbre_sr_jarray);
+
+        jbyteArray opl_timbre_wf_jarray = (jbyteArray)env->GetObjectField(opl_timbre_object, opl_timbre_wf_id);
+        jbyte *opl_timbre_wf_array = env->GetByteArrayElements(opl_timbre_wf_jarray, NULL);
+        memcpy(opl_timbre_wf_array, opl_timbres[i].wf, sizeof(opl_timbres[i].wf));
+        env->ReleaseByteArrayElements(opl_timbre_wf_jarray, opl_timbre_wf_array, 0);
+        env->DeleteLocalRef(opl_timbre_wf_jarray);
+
+        env->SetByteField(opl_timbre_object, opl_timbre_fb_id, opl_timbres[i].fb);
+        env->SetByteField(opl_timbre_object, opl_timbre_note_id, opl_timbres[i].note);
+        env->SetByteField(opl_timbre_object, opl_timbre_octave_id, opl_timbres[i].octave);
     }
 }

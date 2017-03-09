@@ -34,10 +34,10 @@ JNIEXPORT void JNICALL Java_com_davidhs_fmtest_NativeFMSynth_getsamples
 /*
  * Class:     com_davidhs_fmtest_NativeFMSynth
  * Method:    getpatches
- * Signature: ([Lcom/davidhs/fmtest/Gmtimbre/opl_timbre;[Lcom/davidhs/fmtest/Gmtimbre/opl_drum_map;)V
+ * Signature: (Lcom/davidhs/fmtest/Gmtimbre;[Lcom/davidhs/fmtest/Gmtimbre/opl_timbre;[Lcom/davidhs/fmtest/Gmtimbre/opl_drum_map;)V
  */
 JNIEXPORT void JNICALL Java_com_davidhs_fmtest_NativeFMSynth_getpatches
-  (JNIEnv *, jobject, jobjectArray, jobjectArray);
+  (JNIEnv *, jobject, jobject, jobjectArray, jobjectArray);
 
 #ifdef __cplusplus
 }

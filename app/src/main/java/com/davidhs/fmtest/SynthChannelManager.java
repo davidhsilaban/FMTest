@@ -12,16 +12,21 @@ import java.util.HashMap;
 public class SynthChannelManager {
 
     public static final int OPL_CHANNELS = 18;
+    private Gmtimbre mTimbre;
     private NativeFMSynth mSynth;
+
+    private int [] channelRegisterOffset = {0, 1, 2, 8, 9, 10, 16, 17, 18};
 
     private class OplChannelStatus {
         public boolean active = false;
+        public int midiPatchNumber;
         public int midiChannel;
         public int midiNote;
         public double tune = 440.0;
     }
 
     private class MidiChannelStatus {
+        public int patchNumber;
         public int pitchBendValue;
         public boolean sustain;
         public HashMap<Integer, Integer> noteToOplChannelMap = new HashMap<>();
@@ -30,8 +35,9 @@ public class SynthChannelManager {
     ArrayList<OplChannelStatus> oplChannelStatusList;
     ArrayList<MidiChannelStatus> midiChannelStatusList;
 
-    public SynthChannelManager(NativeFMSynth synth) {
+    public SynthChannelManager(NativeFMSynth synth, Gmtimbre timbre) {
         mSynth = synth;
+        mTimbre = timbre;
 
         oplChannelStatusList = new ArrayList<>();
         midiChannelStatusList = new ArrayList<>();
@@ -56,6 +62,7 @@ public class SynthChannelManager {
                 oplChannelStatusList.get(c).active = true;
                 oplChannelStatusList.get(c).midiChannel = midiChannel;
                 oplChannelStatusList.get(c).midiNote = midiNote;
+                oplChannelStatusList.get(c).midiPatchNumber = midiChannelStatusList.get(midiChannel).patchNumber;
                 midiChannelStatusList.get(midiChannel).noteToOplChannelMap.put(midiNote, c);
 
                 channelOff(c);
@@ -86,6 +93,10 @@ public class SynthChannelManager {
                 midiChannelStatusList.get(midiChannel).noteToOplChannelMap.values()) {
             channelTune(oplChannel, bendAmount);
         }
+    }
+
+    public void programChange(int midiChannel, int programNumber) {
+        midiChannelStatusList.get(midiChannel).patchNumber = programNumber;
     }
 
     private void channelTune(int oplChannel, int bendAmount) {
@@ -119,6 +130,7 @@ public class SynthChannelManager {
 //            int fNum = (int) (noteTable[curNote] * octTable[curOct-1] / 49716.0);
         double fNum = (Math.pow(2.0, (oplChannelStatusList.get(oplChannel).midiNote - 69) / 12.0) * Math.pow(2.0, 20 - (curOct - 1)) * oplChannelStatusList.get(oplChannel).tune / 49716.0);
         int curFNum = (int) fNum;
+        channelChangeInstrument(oplChannel);
         mSynth.write(0xA0 + (oplChannel%9) + ((oplChannel / 9) << 8), (byte) (curFNum & 0xFF));
         mSynth.write(0xB0 + (oplChannel%9) + ((oplChannel / 9) << 8), (byte) (0x20 | (curOct - 1) << 2 | (curFNum >> 8) & 3));
     }
@@ -134,5 +146,23 @@ public class SynthChannelManager {
 
         mSynth.write(0xA0 + (oplChannel%9) + ((oplChannel / 9) << 8), (byte) (lastFNum & 0xFF));
         mSynth.write(0xB0 + (oplChannel%9) + ((oplChannel / 9) << 8), (byte) ((lastOct - 1) << 2 | (lastFNum >> 8) & 3));
+    }
+
+    private void channelChangeInstrument(int oplChannel) {
+        Gmtimbre.opl_timbre opl_timbre_data = mTimbre.opl_timbres[oplChannelStatusList.get(oplChannel).midiPatchNumber];
+        mSynth.write(0x20 + channelRegisterOffset[oplChannel%9] + ((oplChannel / 9) << 8), opl_timbre_data.mult[0]);
+        mSynth.write(0x40 + channelRegisterOffset[oplChannel%9] + ((oplChannel / 9) << 8), opl_timbre_data.tl[0]);
+        mSynth.write(0x60 + channelRegisterOffset[oplChannel%9] + ((oplChannel / 9) << 8), opl_timbre_data.ad[0]);
+        mSynth.write(0x80 + channelRegisterOffset[oplChannel%9] + ((oplChannel / 9) << 8), opl_timbre_data.sr[0]);
+
+        mSynth.write(0x23 + channelRegisterOffset[oplChannel%9] + ((oplChannel / 9) << 8), opl_timbre_data.mult[1]);
+        mSynth.write(0x43 + channelRegisterOffset[oplChannel%9] + ((oplChannel / 9) << 8), opl_timbre_data.tl[1]);
+        mSynth.write(0x63 + channelRegisterOffset[oplChannel%9] + ((oplChannel / 9) << 8), opl_timbre_data.ad[1]);
+        mSynth.write(0x83 + channelRegisterOffset[oplChannel%9] + ((oplChannel / 9) << 8), opl_timbre_data.sr[1]);
+
+        mSynth.write(0xC0 + oplChannel, (byte) (opl_timbre_data.fb | (3 << 4)));
+
+        mSynth.write(0xE0 + channelRegisterOffset[oplChannel%9] + ((oplChannel / 9) << 8), opl_timbre_data.wf[0]);
+        mSynth.write(0xE3 + channelRegisterOffset[oplChannel%9] + ((oplChannel / 9) << 8), opl_timbre_data.wf[1]);
     }
 }
