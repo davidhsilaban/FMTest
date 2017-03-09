@@ -61,8 +61,8 @@ public class SynthChannelManager {
             if (oplChannelStatusList.get(c).active == false) {
                 oplChannelStatusList.get(c).active = true;
                 oplChannelStatusList.get(c).midiChannel = midiChannel;
-                oplChannelStatusList.get(c).midiNote = midiNote;
-                oplChannelStatusList.get(c).midiPatchNumber = midiChannelStatusList.get(midiChannel).patchNumber;
+                oplChannelStatusList.get(c).midiNote = midiChannel != 9 ? midiNote : 60;
+                oplChannelStatusList.get(c).midiPatchNumber = midiChannel != 9 ? midiChannelStatusList.get(midiChannel).patchNumber : midiChannelStatusList.get(midiChannel).patchNumber+128;
                 midiChannelStatusList.get(midiChannel).noteToOplChannelMap.put(midiNote, c);
 
                 channelOff(c);
