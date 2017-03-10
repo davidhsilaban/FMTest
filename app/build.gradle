@@ -11,9 +11,14 @@ android {
         versionName "1.0"
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
 
-//        ndk {
-//
-//        }
+        ndk {
+            abiFilters 'armeabi', 'armeabi-v7a', 'x86', 'x86_64', 'mips64'
+        }
+        externalNativeBuild {
+            cmake {
+                arguments "--debug-output", "-DCMAKE_VERBOSE_MAKEFILE=ON"
+            }
+        }
     }
     buildTypes {
         release {
@@ -22,10 +27,15 @@ android {
         }
     }
     externalNativeBuild {
-        ndkBuild {
-            path 'src/main/jni/Android.mk'
+        cmake {
+            path 'src/main/jni/CMakeLists.txt'
         }
     }
+//    externalNativeBuild {
+//        ndkBuild {
+//            path 'src/main/jni/Android.mk'
+//        }
+//    }
 }
 
 dependencies {
