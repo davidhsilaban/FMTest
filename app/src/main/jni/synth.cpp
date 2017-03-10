@@ -122,4 +122,18 @@ JNIEXPORT void JNICALL Java_com_davidhs_fmtest_NativeFMSynth_getpatches(JNIEnv *
         env->SetByteField(opl_timbre_object, opl_timbre_note_id, opl_timbres[i].note);
         env->SetByteField(opl_timbre_object, opl_timbre_octave_id, opl_timbres[i].octave);
     }
+
+    jclass opl_drum_map_class = env->FindClass("com/davidhs/fmtest/Gmtimbre$opl_drum_map");
+    jfieldID opl_drum_base_id = env->GetFieldID(opl_drum_map_class, "base", "B");
+    jfieldID opl_drum_note_id = env->GetFieldID(opl_drum_map_class, "note", "B");
+    for (int i = 0; i < env->GetArrayLength(opl_drum_maps_); i++) {
+        jobject opl_drum_map_object = env->GetObjectArrayElement(opl_drum_maps_, i);
+        if (env->IsSameObject(opl_drum_map_object, NULL)) {
+            opl_drum_map_object = env->NewObject(opl_drum_map_class, env->GetMethodID(opl_drum_map_class, "<init>", "(Lcom/davidhs/fmtest/Gmtimbre;)V"), gmtimbre_instance);
+            env->SetObjectArrayElement(opl_drum_maps_, i, opl_drum_map_object);
+        }
+
+        env->SetByteField(opl_drum_map_object, opl_drum_base_id, opl_drum_maps[i].base);
+        env->SetByteField(opl_drum_map_object, opl_drum_note_id, opl_drum_maps[i].note);
+    }
 }
