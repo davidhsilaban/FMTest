@@ -14,7 +14,8 @@ add_library(midifile STATIC
 
 add_library(synth SHARED
             synth.cpp
-            midifile.cpp)
+            midifile.cpp
+            InputStream_streambuf.cpp)
 
 target_link_libraries(synth
                       midifile

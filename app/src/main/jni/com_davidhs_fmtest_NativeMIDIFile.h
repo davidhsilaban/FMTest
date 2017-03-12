@@ -12,8 +12,16 @@ extern "C" {
  * Method:    midifile_open
  * Signature: (Ljava/lang/String;)J
  */
-JNIEXPORT jlong JNICALL Java_com_davidhs_fmtest_NativeMIDIFile_midifile_1open
+JNIEXPORT jlong JNICALL Java_com_davidhs_fmtest_NativeMIDIFile_midifile_1open__Ljava_lang_String_2
   (JNIEnv *, jobject, jstring);
+
+/*
+ * Class:     com_davidhs_fmtest_NativeMIDIFile
+ * Method:    midifile_open
+ * Signature: (Ljava/io/InputStream;)J
+ */
+JNIEXPORT jlong JNICALL Java_com_davidhs_fmtest_NativeMIDIFile_midifile_1open__Ljava_io_InputStream_2
+  (JNIEnv *, jobject, jobject);
 
 /*
  * Class:     com_davidhs_fmtest_NativeMIDIFile
@@ -46,6 +54,14 @@ JNIEXPORT jint JNICALL Java_com_davidhs_fmtest_NativeMIDIFile_midifile_1getTrack
  */
 JNIEXPORT jobject JNICALL Java_com_davidhs_fmtest_NativeMIDIFile_midifile_1getTrack
   (JNIEnv *, jobject, jlong, jint);
+
+/*
+ * Class:     com_davidhs_fmtest_NativeMIDIFile
+ * Method:    midifile_getTicksPerQuarterNote
+ * Signature: (J)I
+ */
+JNIEXPORT jint JNICALL Java_com_davidhs_fmtest_NativeMIDIFile_midifile_1getTicksPerQuarterNote
+  (JNIEnv *, jobject, jlong);
 
 #ifdef __cplusplus
 }

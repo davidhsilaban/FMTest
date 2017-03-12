@@ -14,6 +14,7 @@ public class SynthChannelManager {
     public static final int OPL_CHANNELS = 18;
     private Gmtimbre mTimbre;
     private NativeFMSynth mSynth;
+    private int lastOplChannel = -1;
 
     private int [] channelRegisterOffset = {0, 1, 2, 8, 9, 10, 16, 17, 18};
 
@@ -50,6 +51,28 @@ public class SynthChannelManager {
         }
     }
 
+    public void sendMIDI(int message, int param1, int param2) {
+        int channel = message & 0x0F;
+        if (channel == 9) return;
+        switch (message & 0xF0) {
+            case 0x80:
+                noteOff(channel, param1);
+                break;
+
+            case 0x90:
+                noteOn(channel, param1, param2);
+                break;
+
+            case 0xE0:
+                pitchBend(channel, param2 << 7 | param1);
+                break;
+
+            case 0xC0:
+                programChange(channel, param1);
+                break;
+        }
+    }
+
     public void noteOn(int midiChannel, int midiNote, int velocity) {
 
         if (velocity == 0) {
@@ -57,33 +80,64 @@ public class SynthChannelManager {
             return;
         }
 
-        for (int c = 0; c < oplChannelStatusList.size(); c++) {
+        int c = lastOplChannel;
+        if(lastOplChannel > -1) Log.d("OPLChannelOn1", ""+c+" "+lastOplChannel+" "+oplChannelStatusList.get(c).active+" "+oplChannelStatusList.get(lastOplChannel).active);
+        do {
+            c = (c+1) % oplChannelStatusList.size();
+            if(lastOplChannel > -1) Log.d("OPLChannelOn2", ""+c+" "+lastOplChannel+" "+oplChannelStatusList.get(c).active+" "+oplChannelStatusList.get(lastOplChannel).active);
+//            if (oplChannelStatusList.get(c).active) {
+////                noteOff(oplChannelStatusList.get(c).midiChannel, oplChannelStatusList.get(c).midiNote);
+//                channelOff(c);
+//                oplChannelStatusList.get(c).active = false;
+//                midiChannelStatusList.get(oplChannelStatusList.get(c).midiChannel).noteToOplChannelMap.remove(oplChannelStatusList.get(c).midiNote);
+////                noteOff(oplChannelStatusList.get(c).midiChannel, oplChannelStatusList.get(c).midiNote);
+//            }
             if (oplChannelStatusList.get(c).active == false) {
                 oplChannelStatusList.get(c).active = true;
                 oplChannelStatusList.get(c).midiChannel = midiChannel;
-                oplChannelStatusList.get(c).midiNote = midiChannel != 9 ? midiNote : mTimbre.opl_drum_maps[midiNote].note;
-                oplChannelStatusList.get(c).midiPatchNumber = midiChannel != 9 ? midiChannelStatusList.get(midiChannel).patchNumber : (mTimbre.opl_drum_maps[midiNote].base+128);
+                oplChannelStatusList.get(c).midiNote = midiNote;
+                oplChannelStatusList.get(c).midiPatchNumber = midiChannel != 9 ? midiChannelStatusList.get(midiChannel).patchNumber : (midiNote+128);
                 midiChannelStatusList.get(midiChannel).noteToOplChannelMap.put(midiNote, c);
 
                 channelOff(c);
-                channelOn(c);
+//                channelOn(c);
+                channelChangeInstrument(c);
                 pitchBend(midiChannel, midiChannelStatusList.get(midiChannel).pitchBendValue);
+                lastOplChannel = c;
+                printOPLChannelsStatus();
                 return;
             }
-        }
+        } while (c != lastOplChannel);
 
-        noteOff(oplChannelStatusList.get(0).midiChannel, oplChannelStatusList.get(0).midiNote);
+        printOPLChannelsStatus();
+    }
+
+    private void printOPLChannelsStatus() {
+        StringBuilder sb = new StringBuilder("|");
+        for (OplChannelStatus ch :
+                oplChannelStatusList) {
+            if (ch.active) {
+                sb.append(String.format("%2s|", ch.midiChannel));
+            } else {
+                sb.append("..|");
+            }
+        }
+        Log.d("OPLChannels", sb.toString());
     }
 
     public void noteOff(int midiChannel, int midiNote) {
-        for (int c = 0; c < oplChannelStatusList.size(); c++) {
-            if (oplChannelStatusList.get(c).midiNote == midiNote && oplChannelStatusList.get(c).midiChannel == midiChannel) {
-                oplChannelStatusList.get(c).active = false;
-                midiChannelStatusList.get(midiChannel).noteToOplChannelMap.remove(midiNote);
-
-                channelOff(c);
-            }
+        Integer c = midiChannelStatusList.get(midiChannel).noteToOplChannelMap.get(midiNote);
+        if (c != null) {
+            oplChannelStatusList.get(c).active = false;
+            channelOff(c);
         }
+        midiChannelStatusList.get(midiChannel).noteToOplChannelMap.remove(midiNote);
+//        for (int c = 0; c < oplChannelStatusList.size(); c++) {
+//            if (oplChannelStatusList.get(c).midiNote == midiNote && oplChannelStatusList.get(c).midiChannel == midiChannel) {
+//                oplChannelStatusList.get(c).active = false;
+//                channelOff(c);
+//            }
+//        }
     }
 
     public void pitchBend(int midiChannel, int bendAmount) {
@@ -91,7 +145,9 @@ public class SynthChannelManager {
 
         for (Integer oplChannel :
                 midiChannelStatusList.get(midiChannel).noteToOplChannelMap.values()) {
-            channelTune(oplChannel, bendAmount);
+            if (oplChannelStatusList.get(oplChannel).midiChannel == midiChannel) {
+                channelTune(oplChannel, bendAmount);
+            }
         }
     }
 
@@ -111,17 +167,19 @@ public class SynthChannelManager {
 
         oplChannelStatusList.get(oplChannel).tune = result;
 
-        int curNote = oplChannelStatusList.get(oplChannel).midiNote % 12;
+//        int curNote = oplChannelStatusList.get(oplChannel).midiNote % 12;
+        int curNote = oplChannelStatusList.get(oplChannel).midiChannel != 9 ? oplChannelStatusList.get(oplChannel).midiNote : mTimbre.opl_drum_maps[oplChannelStatusList.get(oplChannel).midiNote].note;
         int curOct = oplChannelStatusList.get(oplChannel).midiNote / 12;
         if (curOct < 1) curOct = 1;
 
-        double fNum = (Math.pow(2.0, (oplChannelStatusList.get(oplChannel).midiNote - 69) / 12.0) * Math.pow(2.0, 20 - (curOct - 1)) * oplChannelStatusList.get(oplChannel).tune / 49716.0);
+        double fNum = (Math.pow(2.0, (curNote - 69) / 12.0) * Math.pow(2.0, 20 - (curOct - 1)) * oplChannelStatusList.get(oplChannel).tune / 49716.0);
         int curFNum = (int) fNum;
         mSynth.write(0xA0 + (oplChannel%9) + ((oplChannel / 9) << 8), (byte) (curFNum & 0xFF));
         mSynth.write(0xB0 + (oplChannel%9) + ((oplChannel / 9) << 8), (byte) ((oplChannelStatusList.get(oplChannel).active ? 0x20 : 0x0) | (curOct - 1) << 2 | (curFNum >> 8) & 3));
     }
 
     private void channelOn(int oplChannel) {
+        oplChannelStatusList.get(oplChannel).active = true;
         int curNote = oplChannelStatusList.get(oplChannel).midiNote % 12;
         int curOct = oplChannelStatusList.get(oplChannel).midiNote / 12;
         if (curOct < 1) curOct = 1;
@@ -137,15 +195,17 @@ public class SynthChannelManager {
 
     private void channelOff(int oplChannel) {
         OplChannelStatus channelStatus = oplChannelStatusList.get(oplChannel);
-        int lastNote = channelStatus.midiNote % 12;
+//        int lastNote = channelStatus.midiNote % 12;
+        int lastNote = channelStatus.midiChannel != 9 ? channelStatus.midiNote : mTimbre.opl_drum_maps[channelStatus.midiNote].note;
         int lastOct = channelStatus.midiNote / 12;
         if (lastOct < 1) lastOct = 1;
 
-        double fNum = (Math.pow(2.0, (channelStatus.midiNote - 69) / 12.0) * Math.pow(2.0, 20 - (lastOct - 1)) * channelStatus.tune / 49716.0);
+        double fNum = (Math.pow(2.0, (lastNote - 69) / 12.0) * Math.pow(2.0, 20 - (lastOct - 1)) * channelStatus.tune / 49716.0);
         int lastFNum = (int) fNum;
 
         mSynth.write(0xA0 + (oplChannel%9) + ((oplChannel / 9) << 8), (byte) (lastFNum & 0xFF));
         mSynth.write(0xB0 + (oplChannel%9) + ((oplChannel / 9) << 8), (byte) ((lastOct - 1) << 2 | (lastFNum >> 8) & 3));
+//        channelStatus.active = false;
     }
 
     private void channelChangeInstrument(int oplChannel) {

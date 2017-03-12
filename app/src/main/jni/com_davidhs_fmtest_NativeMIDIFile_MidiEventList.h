@@ -10,10 +10,18 @@ extern "C" {
 /*
  * Class:     com_davidhs_fmtest_NativeMIDIFile_MidiEventList
  * Method:    midifile_getTrack_get
- * Signature: (JII)Lcom/davidhs/fmtest/NativeMIDIFile/MidiEvent;
+ * Signature: (Lcom/davidhs/fmtest/NativeMIDIFile;JII)Lcom/davidhs/fmtest/NativeMIDIFile/MidiEvent;
  */
 JNIEXPORT jobject JNICALL Java_com_davidhs_fmtest_NativeMIDIFile_00024MidiEventList_midifile_1getTrack_1get
-  (JNIEnv *, jobject, jlong, jint, jint);
+  (JNIEnv *, jobject, jobject, jlong, jint, jint);
+
+/*
+ * Class:     com_davidhs_fmtest_NativeMIDIFile_MidiEventList
+ * Method:    midifile_getTrack_size
+ * Signature: (Lcom/davidhs/fmtest/NativeMIDIFile;JI)I
+ */
+JNIEXPORT jint JNICALL Java_com_davidhs_fmtest_NativeMIDIFile_00024MidiEventList_midifile_1getTrack_1size
+  (JNIEnv *, jobject, jobject, jlong, jint);
 
 #ifdef __cplusplus
 }

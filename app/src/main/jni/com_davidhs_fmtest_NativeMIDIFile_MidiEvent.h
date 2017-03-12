@@ -7,6 +7,46 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+/*
+ * Class:     com_davidhs_fmtest_NativeMIDIFile_MidiEvent
+ * Method:    midifile_getTrack_get_getTempoMicro
+ * Signature: (Lcom/davidhs/fmtest/NativeMIDIFile;JII)I
+ */
+JNIEXPORT jint JNICALL Java_com_davidhs_fmtest_NativeMIDIFile_00024MidiEvent_midifile_1getTrack_1get_1getTempoMicro
+  (JNIEnv *, jobject, jobject, jlong, jint, jint);
+
+/*
+ * Class:     com_davidhs_fmtest_NativeMIDIFile_MidiEvent
+ * Method:    midifile_getTrack_get_isTempo
+ * Signature: (Lcom/davidhs/fmtest/NativeMIDIFile;JII)I
+ */
+JNIEXPORT jint JNICALL Java_com_davidhs_fmtest_NativeMIDIFile_00024MidiEvent_midifile_1getTrack_1get_1isTempo
+  (JNIEnv *, jobject, jobject, jlong, jint, jint);
+
+/*
+ * Class:     com_davidhs_fmtest_NativeMIDIFile_MidiEvent
+ * Method:    midifile_getTrack_get_getCommandByte
+ * Signature: (Lcom/davidhs/fmtest/NativeMIDIFile;JII)I
+ */
+JNIEXPORT jint JNICALL Java_com_davidhs_fmtest_NativeMIDIFile_00024MidiEvent_midifile_1getTrack_1get_1getCommandByte
+  (JNIEnv *, jobject, jobject, jlong, jint, jint);
+
+/*
+ * Class:     com_davidhs_fmtest_NativeMIDIFile_MidiEvent
+ * Method:    midifile_getTrack_get_getP1
+ * Signature: (Lcom/davidhs/fmtest/NativeMIDIFile;JII)I
+ */
+JNIEXPORT jint JNICALL Java_com_davidhs_fmtest_NativeMIDIFile_00024MidiEvent_midifile_1getTrack_1get_1getP1
+  (JNIEnv *, jobject, jobject, jlong, jint, jint);
+
+/*
+ * Class:     com_davidhs_fmtest_NativeMIDIFile_MidiEvent
+ * Method:    midifile_getTrack_get_getP2
+ * Signature: (Lcom/davidhs/fmtest/NativeMIDIFile;JII)I
+ */
+JNIEXPORT jint JNICALL Java_com_davidhs_fmtest_NativeMIDIFile_00024MidiEvent_midifile_1getTrack_1get_1getP2
+  (JNIEnv *, jobject, jobject, jlong, jint, jint);
+
 #ifdef __cplusplus
 }
 #endif

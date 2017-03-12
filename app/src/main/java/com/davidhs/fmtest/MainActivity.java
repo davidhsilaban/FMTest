@@ -62,14 +62,64 @@ public class MainActivity extends AppCompatActivity implements MidiEventListener
             }
         }
     };
+    private Runnable midiParseRunnable = new Runnable() {
+        @Override
+        public void run() {
+            NativeMIDIFile.MidiEventList eventList = nativeMIDIFile.getTrack(0);
+            long curTime = System.currentTimeMillis();
+            long nextTrigger = (long) (curTime + (curMsPerTick * eventList.get(0).tick));
+            for (int i = 0; i < eventList.size();) {
+                curTime = System.currentTimeMillis();
+                if (i == 0) {
+                    nextTrigger = (long) (curTime + (curMsPerTick * eventList.get(0).tick));
+                }
+                while (curTime >= nextTrigger) {
+                    NativeMIDIFile.MidiEvent event = eventList.get(i);
+//                Log.d("MIDIEvent", ""+event.getCommandByte());
+                    if (event.isTempo() > 0) {
+//                    Log.d("MIDITempo?", ""+event.isTempo());
+                        Log.d("MIDITempo", ""+event.getTempoMicro());
+                        curTempo = event.getTempoMicro();
+                        curMsPerTick = curTempo / curTPQ / 1000.0;
+                        Log.d("MIDIMsPerTick", ""+curMsPerTick);
+                    }
+                    channelManager.sendMIDI(event.getCommandByte(), event.getP1(), event.getP2());
+                    i++;
+                    if (i < eventList.size()) {
+                        nextTrigger += curMsPerTick * eventList.get(i).tick;
+//                        i++;
+                    } else {
+                        break;
+                    }
+                }
+
+                curTime = System.currentTimeMillis();
+                while (curTime < nextTrigger) {
+//                    enqueueBuffer((int) Math.round(curMsPerTick * event.tick * 49.7));
+                    enqueueBuffer((int) Math.round((nextTrigger - curTime) * 49.7));
+                    curTime = System.currentTimeMillis();
+                }
+//                enqueueBuffer((int) Math.round((nextTrigger - System.currentTimeMillis()) * 49.7));
+//                try {
+//                    Thread.sleep((long) (curMsPerTick * event.tick));
+//                } catch (InterruptedException e) {
+//                    e.printStackTrace();
+//                }
+            }
+        }
+    };
     private int minBufferSize;
     private int lastFNum;
     private int lastBlock;
     private int curTempo = 500000;
+    private int curTPQ = 120;
+    private double curMsPerTick = curTempo / curTPQ / 1000;
     private MidiFile midiFile;
+    private NativeMIDIFile nativeMIDIFile;
     private long samplesPerMs = 0;
     private int curMs;
     private long lastMs;
+    private Thread midiParseThread;
 
     private void prequeueBuffer() {
 //        for (int i = 0; i < oplBuffer.length; i++) {
@@ -141,6 +191,12 @@ public class MainActivity extends AppCompatActivity implements MidiEventListener
             e.printStackTrace();
         }
 
+        nativeMIDIFile = new NativeMIDIFile(getResources().openRawResource(R.raw.gmstri00));
+        curTPQ = nativeMIDIFile.getTicksPerQuarterNote();
+        Toast.makeText(this, ""+nativeMIDIFile.getTicksPerQuarterNote(), Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, ""+nativeMIDIFile.getTrackCount(), Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, ""+nativeMIDIFile.getTrack(0).size(), Toast.LENGTH_SHORT).show();
+
         // Test audio parameter
         opl3.write(0, 0x01, 1 << 5);
         synth.write(0x01, (byte) (1 << 5));
@@ -172,11 +228,14 @@ public class MainActivity extends AppCompatActivity implements MidiEventListener
         }
 
         setupAudio();
-        midiProcessor.start();
+//        midiProcessor.start();
         Toast.makeText(this, ""+timbre.opl_timbres[3].mult[0], Toast.LENGTH_SHORT).show();
 
         audioThread = new Thread(audioWriteRunnable);
-        audioThread.start(); // start audio playback
+//        audioThread.start(); // start audio playback
+
+        midiParseThread = new Thread(midiParseRunnable);
+        midiParseThread.start();
 }
 
     private void fillTable() {
