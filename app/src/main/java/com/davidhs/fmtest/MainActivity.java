@@ -1,10 +1,13 @@
 package com.davidhs.fmtest;
 
+import android.content.Intent;
 import android.media.AudioAttributes;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
+import android.net.Uri;
 import android.os.Handler;
+import android.provider.MediaStore;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -26,10 +29,38 @@ import com.leff.midi.util.MidiEventListener;
 import com.leff.midi.util.MidiProcessor;
 import com.leff.midi.util.MidiUtil;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 
 public class MainActivity extends AppCompatActivity implements MidiEventListener {
 
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        switch (requestCode) {
+            case FILE_REQUEST_CODE:
+                if (resultCode == RESULT_OK) {
+                    Toast.makeText(this, data.getData().getPath(), Toast.LENGTH_SHORT).show();
+
+                    try {
+                        nativeMIDIFile = new NativeMIDIFile(getContentResolver().openInputStream(data.getData()));
+                        curTPQ = nativeMIDIFile.getTicksPerQuarterNote();
+                        Toast.makeText(this, ""+nativeMIDIFile.getTicksPerQuarterNote(), Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, ""+nativeMIDIFile.getTrackCount(), Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, ""+nativeMIDIFile.getTrack(0).size(), Toast.LENGTH_SHORT).show();
+
+                        midiParseThread = new Thread(midiParseRunnable);
+                        midiParseThread.start();
+                    } catch (FileNotFoundException e) {
+                        e.printStackTrace();
+                    }
+                }
+                break;
+        }
+
+        super.onActivityResult(requestCode, resultCode, data);
+    }
+
+    private static final int FILE_REQUEST_CODE = 10;
     OPL3 opl3;
     AudioTrack oplAudioTrack;
     short [] oplBuffer;
@@ -69,7 +100,7 @@ public class MainActivity extends AppCompatActivity implements MidiEventListener
             long curTime = System.currentTimeMillis();
             long nextTrigger = (long) (curTime + (curMsPerTick * eventList.get(0).tick));
             for (int i = 0; i < eventList.size();) {
-                curTime = System.currentTimeMillis();
+//                curTime = System.currentTimeMillis();
                 if (i == 0) {
                     nextTrigger = (long) (curTime + (curMsPerTick * eventList.get(0).tick));
                 }
@@ -93,11 +124,11 @@ public class MainActivity extends AppCompatActivity implements MidiEventListener
                     }
                 }
 
-                curTime = System.currentTimeMillis();
+//                curTime = System.currentTimeMillis();
                 while (curTime < nextTrigger) {
 //                    enqueueBuffer((int) Math.round(curMsPerTick * event.tick * 49.7));
                     enqueueBuffer((int) Math.round((nextTrigger - curTime) * 49.7));
-                    curTime = System.currentTimeMillis();
+                    curTime += (nextTrigger - curTime);
                 }
 //                enqueueBuffer((int) Math.round((nextTrigger - System.currentTimeMillis()) * 49.7));
 //                try {
@@ -191,11 +222,15 @@ public class MainActivity extends AppCompatActivity implements MidiEventListener
             e.printStackTrace();
         }
 
-        nativeMIDIFile = new NativeMIDIFile(getResources().openRawResource(R.raw.gmstri00));
-        curTPQ = nativeMIDIFile.getTicksPerQuarterNote();
-        Toast.makeText(this, ""+nativeMIDIFile.getTicksPerQuarterNote(), Toast.LENGTH_SHORT).show();
-        Toast.makeText(this, ""+nativeMIDIFile.getTrackCount(), Toast.LENGTH_SHORT).show();
-        Toast.makeText(this, ""+nativeMIDIFile.getTrack(0).size(), Toast.LENGTH_SHORT).show();
+        Intent fileBrowserIntent = new Intent(Intent.ACTION_GET_CONTENT);
+        fileBrowserIntent.setType("audio/midi");
+        startActivityForResult(fileBrowserIntent, FILE_REQUEST_CODE);
+
+//        nativeMIDIFile = new NativeMIDIFile(getResources().openRawResource(R.raw.gmstri00));
+//        curTPQ = nativeMIDIFile.getTicksPerQuarterNote();
+//        Toast.makeText(this, ""+nativeMIDIFile.getTicksPerQuarterNote(), Toast.LENGTH_SHORT).show();
+//        Toast.makeText(this, ""+nativeMIDIFile.getTrackCount(), Toast.LENGTH_SHORT).show();
+//        Toast.makeText(this, ""+nativeMIDIFile.getTrack(0).size(), Toast.LENGTH_SHORT).show();
 
         // Test audio parameter
         opl3.write(0, 0x01, 1 << 5);
@@ -234,8 +269,8 @@ public class MainActivity extends AppCompatActivity implements MidiEventListener
         audioThread = new Thread(audioWriteRunnable);
 //        audioThread.start(); // start audio playback
 
-        midiParseThread = new Thread(midiParseRunnable);
-        midiParseThread.start();
+//        midiParseThread = new Thread(midiParseRunnable);
+//        midiParseThread.start();
 }
 
     private void fillTable() {

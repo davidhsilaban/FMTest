@@ -1,6 +1,7 @@
 package com.davidhs.fmtest;
 
 import android.util.Log;
+import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -28,9 +29,9 @@ public class SynthChannelManager {
 
     private class MidiChannelStatus {
         public int patchNumber;
-        public int pitchBendValue;
+        public int pitchBendValue = 8192;
         public boolean sustain;
-        public HashMap<Integer, Integer> noteToOplChannelMap = new HashMap<>();
+        public HashMap<Integer, ArrayList<Integer>> noteToOplChannelMap = new HashMap<>();
     }
 
     ArrayList<OplChannelStatus> oplChannelStatusList;
@@ -53,7 +54,7 @@ public class SynthChannelManager {
 
     public void sendMIDI(int message, int param1, int param2) {
         int channel = message & 0x0F;
-        if (channel == 9) return;
+//        if (channel == 9) return;
         switch (message & 0xF0) {
             case 0x80:
                 noteOff(channel, param1);
@@ -81,10 +82,10 @@ public class SynthChannelManager {
         }
 
         int c = lastOplChannel;
-        if(lastOplChannel > -1) Log.d("OPLChannelOn1", ""+c+" "+lastOplChannel+" "+oplChannelStatusList.get(c).active+" "+oplChannelStatusList.get(lastOplChannel).active);
+//        if(lastOplChannel > -1) Log.d("OPLChannelOn1", ""+c+" "+lastOplChannel+" "+oplChannelStatusList.get(c).active+" "+oplChannelStatusList.get(lastOplChannel).active);
         do {
             c = (c+1) % oplChannelStatusList.size();
-            if(lastOplChannel > -1) Log.d("OPLChannelOn2", ""+c+" "+lastOplChannel+" "+oplChannelStatusList.get(c).active+" "+oplChannelStatusList.get(lastOplChannel).active);
+//            if(lastOplChannel > -1) Log.d("OPLChannelOn2", ""+c+" "+lastOplChannel+" "+oplChannelStatusList.get(c).active+" "+oplChannelStatusList.get(lastOplChannel).active);
 //            if (oplChannelStatusList.get(c).active) {
 ////                noteOff(oplChannelStatusList.get(c).midiChannel, oplChannelStatusList.get(c).midiNote);
 //                channelOff(c);
@@ -96,8 +97,11 @@ public class SynthChannelManager {
                 oplChannelStatusList.get(c).active = true;
                 oplChannelStatusList.get(c).midiChannel = midiChannel;
                 oplChannelStatusList.get(c).midiNote = midiNote;
-                oplChannelStatusList.get(c).midiPatchNumber = midiChannel != 9 ? midiChannelStatusList.get(midiChannel).patchNumber : (midiNote+128);
-                midiChannelStatusList.get(midiChannel).noteToOplChannelMap.put(midiNote, c);
+                oplChannelStatusList.get(c).midiPatchNumber = midiChannel != 9 ? midiChannelStatusList.get(midiChannel).patchNumber : (mTimbre.opl_drum_maps[midiNote].base+128);
+                ArrayList<Integer> oplChannelList = midiChannelStatusList.get(midiChannel).noteToOplChannelMap.get(midiNote);
+                if (oplChannelList == null) oplChannelList = new ArrayList<>();
+                oplChannelList.add(c);
+                midiChannelStatusList.get(midiChannel).noteToOplChannelMap.put(midiNote, oplChannelList);
 
                 channelOff(c);
 //                channelOn(c);
@@ -126,12 +130,15 @@ public class SynthChannelManager {
     }
 
     public void noteOff(int midiChannel, int midiNote) {
-        Integer c = midiChannelStatusList.get(midiChannel).noteToOplChannelMap.get(midiNote);
-        if (c != null) {
-            oplChannelStatusList.get(c).active = false;
-            channelOff(c);
+        ArrayList<Integer> channelArray = midiChannelStatusList.get(midiChannel).noteToOplChannelMap.get(midiNote);
+        if (channelArray != null) {
+            for (Integer c :
+                    channelArray) {
+                oplChannelStatusList.get(c).active = false;
+                channelOff(c);
+            }
+            midiChannelStatusList.get(midiChannel).noteToOplChannelMap.remove(midiNote);
         }
-        midiChannelStatusList.get(midiChannel).noteToOplChannelMap.remove(midiNote);
 //        for (int c = 0; c < oplChannelStatusList.size(); c++) {
 //            if (oplChannelStatusList.get(c).midiNote == midiNote && oplChannelStatusList.get(c).midiChannel == midiChannel) {
 //                oplChannelStatusList.get(c).active = false;
@@ -142,10 +149,12 @@ public class SynthChannelManager {
 
     public void pitchBend(int midiChannel, int bendAmount) {
         midiChannelStatusList.get(midiChannel).pitchBendValue = bendAmount;
+        Log.d("pitchBend", ""+bendAmount);
 
-        for (Integer oplChannel :
+        for (ArrayList<Integer> oplChannels :
                 midiChannelStatusList.get(midiChannel).noteToOplChannelMap.values()) {
-            if (oplChannelStatusList.get(oplChannel).midiChannel == midiChannel) {
+            for (Integer oplChannel :
+                    oplChannels) {
                 channelTune(oplChannel, bendAmount);
             }
         }
